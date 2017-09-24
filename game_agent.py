@@ -90,6 +90,34 @@ def custom_score_3(game, player):
     raise NotImplementedError
 
 
+def minimax_score(game, player):
+    """This heuristic is used for the minimax algorithm and returns -1, +1 for losing, winning terminal node respectively
+
+    Parameters
+    ----------
+    game : `isolation.Board`
+        An instance of `isolation.Board` encoding the current state of the
+        game (e.g., player locations and blocked cells).
+
+    player : hashable
+        One of the objects registered by the game object as a valid player.
+        (i.e., `player` should be either game.__player_1__ or
+        game.__player_2__).
+
+    Returns
+    ----------
+    float
+        The heuristic value of the current game state.
+    """
+    return game.utility(player)
+    # if game.is_loser(player):
+    #     return float("-1")
+
+    # if game.is_winner(player):
+    #     return float("1")
+
+    # return 0.
+
 class IsolationPlayer:
     """Base class for minimax and alphabeta agents -- this class is never
     constructed or tested directly.
@@ -124,6 +152,10 @@ class MinimaxPlayer(IsolationPlayer):
     search. You must finish and test this player to make sure it properly uses
     minimax to return a good move before the search time limit expires.
     """
+
+    def set_name(self, name):
+        self.name = name
+        return self
 
     def get_move(self, game, time_left):
         """Search for the best move from the available legal moves and return a
@@ -213,8 +245,11 @@ class MinimaxPlayer(IsolationPlayer):
             raise SearchTimeout()
 
         # TODO: finish this function!
-        return max(game.get_legal_moves(self),
-                   key=lambda m: min_value(game.forecast_move(m)))
+        # Make new game state
+        clone_game = game.copy()
+        legal_moves = clone_game.get_legal_moves()
+        return (-1,-1) if not legal_moves else \
+            max(legal_moves, key=lambda m: self.min_value(clone_game.forecast_move(m), depth, 0))
 
     def terminal_test(self, game):
         """ Return True if the game is over for the active player
@@ -225,36 +260,46 @@ class MinimaxPlayer(IsolationPlayer):
 
         return not bool(game.get_legal_moves())
 
-    def min_value(game):
+    def min_value(self, game, max_depth, curr_depth):
         """ Return the value for a win (+1) if the game is over,
         otherwise return the minimum value over all legal child
         nodes.
         """
+        assert curr_depth <= max_depth, "Max depth cannot be less than current depth!"
         if self.time_left() < self.TIMER_THRESHOLD:
             raise SearchTimeout()
 
-        if terminal_test(game):
+        curr_depth += 1
+
+        if curr_depth == max_depth or self.terminal_test(game):
             return self.score(game, self)  # by Assumption 2
-        v = float("inf")
-        for m in game.get_legal_moves(self):
-            v = min(v, max_value(game.forecast_move(m)))
-        return v
+        elif curr_depth < max_depth:
+            v = float("inf")
+            for m in game.get_legal_moves():
+                v = min(v, self.max_value(game.forecast_move(m), max_depth, curr_depth))
+            return v
 
-
-    def max_value(game):
+    def max_value(self, game, max_depth, curr_depth):
         """ Return the value for a loss (-1) if the game is over,
         otherwise return the maximum value over all legal child
         nodes.
         """
+        assert curr_depth <= max_depth, "Max depth cannot be less than current depth!"
         if self.time_left() < self.TIMER_THRESHOLD:
             raise SearchTimeout()
 
-        if terminal_test(game):
+        curr_depth += 1
+
+        if curr_depth == max_depth or self.terminal_test(game):
             return self.score(game, self)  # by assumption 2
-        v = float("-inf")
-        for m in game.get_legal_moves(self):
-            v = max(v, min_value(game.forecast_move(m)))
-        return v
+        elif curr_depth < max_depth:
+            v = float("-inf")
+            for m in game.get_legal_moves():
+                v = max(v, self.min_value(game.forecast_move(m), max_depth, curr_depth))
+            return v
+
+    def __str__(self):
+        return self.name
 
 
 class AlphaBetaPlayer(IsolationPlayer):
