@@ -63,6 +63,7 @@ def play_round(cpu_agent, test_agents, win_counts, num_matches):
             winner, _, termination = game.play(time_limit=TIME_LIMIT)
             win_counts[winner] += 1
 
+            #print(termination)
             if termination == "timeout":
                 timeout_count += 1
             elif termination == "forfeit":

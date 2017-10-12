@@ -1,0 +1,30 @@
+Part 2: Research Review - Submission
+
+PAPER
+Deep Blue, 11th October 2017
+(https://pdfs.semanticscholar.org/ad2c/1efffcd7c3b7106e507396bdaa5fe00fa597.pdf)
+
+SUMMARY OF GOALS & TECHNIQUES
+
+GOALS
+Deep Blue (more specifically Deep Blue II) is an IBM-developed chess machine (i.e. game agent) consisting of specialised hardware and software designed to beat human grandmasters of the game, in particular, the best ranked player at the time (1997), Garry Kasparov.
+
+HARDWARE TECHNIQUES
+The system is massively parallel to perform chess game tree searches at scale, comprising of dedicated hardware components (30-node processor; 16 specialised chess chips per node). Each chess chip can search up to 2.5 million chess positions per second and communicate to a designated master chip via a microchannel bus. Each chess chip had an evaluation function with over 8000 features, repetition detection (to avoid duplicating searches) and specific move generation modes (e.g. list all attacking moves). Each chip also had a hardware search encoded (null-window alpha-beta search), used in combination with the software search algorithm for optimal performance.
+
+SOFTWARE TECHNIQUES
+Deep Blue II employed the following algorithmic ideas to improve search performance and beat Garry:
+1. Quiescence Search - Using various game state criteria to counteract the horizon effect and improve th results of the evaluation function
+2. Iterative Deepening - Performing a depth-limited depth-first search to get (intermediate) heuristic scores quickly - and refine the score by going to a greater depth if constraints e.g. time permits
+3. Transposition Tables - Storing evaluated scores in a datastructure for board positions for re-use to save rework; similar to memoisation
+4. NegaScout (Principle Variation Search) - Negamax version of Alpha-Beta Pruning combined with the assumption that the first node is the principal variation i.e. the best move (see also https://en.wikipedia.org/wiki/Principal_variation_search)
+5. Variations of Extensions - Increasing the search by a number of plies based on game-specific board configurations, rules and heuristics. Includes fractional, delayed and credit-based extensions
+6. Opening Book - Stored book of circa 4000 handcrafted "good" chess opening positions used to shortcut search effort in the early stages of the game
+7. Extended Book - Comprehensive positional data of 700'000 chess games, used to direct game play by calculating "bonus points" for certain moves (= offsetting alpha-beta search window by that amount). Bonus point calculation are based on multiple functions of the move e.g. move frequency, relative move frequency, strength of players who played move, move recency, move result etc.
+8. Endgame Database - Similar to #6 above for endgames
+
+OTHER
+Besides chess-specific hardware and software improvements, auxiliary tools used to tune and visualise the algorithms were developed, greatly aiding in adjusting parameters and measuring performance.
+
+SUMMARY OF RESULTS
+Deep Blue II defeated Garry Kasparov in 1997 by a score of 3.5 to 2.5. Interestingly, despite the aforementioned commendable result, the research team mentioned that measuring performance reliably or debugging such a non-deterministic system is very difficult. The open question is: does artificial intelligence necessarily correlate positively with implementation complexity?
