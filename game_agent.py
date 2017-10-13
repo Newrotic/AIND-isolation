@@ -3,8 +3,7 @@ test your agent's strength against a set of known agents using tournament.py
 and include the results in your report.
 """
 import random
-import sample_players
-import timeit
+#import timeit
 
 class SearchTimeout(Exception):
     """Subclass base exception for code clarity. """
@@ -100,6 +99,67 @@ def random_score(game, player):
         else:
             return 1.
 
+def improved_score(game, player):
+    """The "Improved" evaluation function discussed in lecture that outputs a
+    score equal to the difference in the number of moves available to the
+    two players.
+
+    Parameters
+    ----------
+    game : `isolation.Board`
+        An instance of `isolation.Board` encoding the current state of the
+        game (e.g., player locations and blocked cells).
+
+    player : hashable
+        One of the objects registered by the game object as a valid player.
+        (i.e., `player` should be either game.__player_1__ or
+        game.__player_2__).
+
+    Returns
+    ----------
+    float
+        The heuristic value of the current game state
+    """
+    if game.is_loser(player):
+        return float("-inf")
+
+    if game.is_winner(player):
+        return float("inf")
+
+    own_moves = len(game.get_legal_moves(player))
+    opp_moves = len(game.get_legal_moves(game.get_opponent(player)))
+    return float(own_moves - opp_moves)
+
+
+def center_score(game, player):
+    """Outputs a score equal to square of the distance from the center of the
+    board to the position of the player (Euclidean Distance)
+
+    Parameters
+    ----------
+    game : `isolation.Board`
+        An instance of `isolation.Board` encoding the current state of the
+        game (e.g., player locations and blocked cells).
+
+    player : hashable
+        One of the objects registered by the game object as a valid player.
+        (i.e., `player` should be either game.__player_1__ or
+        game.__player_2__).
+
+    Returns
+    ----------
+    float
+        The heuristic value of the current game state
+    """
+    if game.is_loser(player):
+        return float("-inf")
+
+    if game.is_winner(player):
+        return float("inf")
+
+    w, h = game.width / 2., game.height / 2.
+    y, x = game.get_player_location(player)
+    return float((h - y)**2 + (w - x)**2)**(0.5)
 
 def custom_score_2(game, player):
     """Calculate the heuristic value of a game state from the point of view
@@ -207,8 +267,7 @@ def custom_score_4(game, player):
         The heuristic value of the current game state to the specified player.
     """
 
-    # return sample_players.improved_score(game, player)
-    imps = sample_players.improved_score(game, player) 
+    imps = improved_score(game, player) 
     factor = random_score(game, player)
     # If improved score is in favour of opponent i.e. negative, invert "factor" multiplier to reduce
     # overall score if random score is in favour of active player
@@ -217,10 +276,9 @@ def custom_score_4(game, player):
     #print("imps %f factor %f" % (imps, factor))
     return float(imps * factor)
 
-def custom_score(game, player):
+def custom_score_5(game, player):
     """Calculate the heuristic value of a game state from the point of view
-    of the given player. Uses the improved move score up to a specified depth and then
-    switches over to scoring based on random games
+    of the given player. Extends search by 1 ply and calculates average improved score.
 
     Note: this function should be called from within a Player instance as
     `self.score()` -- you should not need to call this function directly.
@@ -253,11 +311,65 @@ def custom_score(game, player):
         # opp_moves = game.get_legal_moves(game.get_opponent(player))
         own_score = 0
         for move in own_moves:
-            own_score += sample_players.improved_score(game.forecast_move(move), player)
+            own_score += improved_score(game.forecast_move(move), player)
         own_score /= 1.*len(own_moves)
         return float(own_score)   
     else:
-        return sample_players.improved_score(game, player)
+        return improved_score(game, player)
+
+def custom_score(game, player):
+    """Calculate the heuristic value of a game state from the point of view
+    of the given player. Uses three scores to calculate the final score:
+        1) Game independent: Improved Score i.e. # own move - # opp move
+        2) Board aware: Relative Score to Centre i.e. to_centre(own) - to_centre(opp)
+        3) Game aware: Bonus points if own legal move cuts off opp legal move
+
+    Note: this function should be called from within a Player instance as
+    `self.score()` -- you should not need to call this function directly.
+
+    Parameters
+    ----------
+    game : `isolation.Board`
+        An instance of `isolation.Board` encoding the current state of the
+        game (e.g., player locations and blocked cells).
+
+    player : object
+        A player instance in the current game (i.e., an object corresponding to
+        one of the player objects `game.__player_1__` or `game.__player_2__`.)
+
+    Returns
+    -------
+    float
+        The heuristic value of the current game state to the specified player.
+    """
+
+    # Calculate score  by averaging 1-ply extension
+    if game.is_loser(player):
+        return float("-inf")
+
+    if game.is_winner(player):
+        return float("inf")
+
+    # Game independent score
+    gi_score = improved_score(game, player)
+
+    # Board aware score
+    ba_score = center_score(game, player) - center_score(game, game.get_opponent(player))
+
+    # Game aware factor
+    own_moves = game.get_legal_moves(player)
+    opp_moves = game.get_legal_moves(game.get_opponent(player))
+    ga_factor = 0
+    if own_moves != opp_moves and own_moves and opp_moves:
+        overlapping_moves = [m for m in own_moves if m in opp_moves]
+        #ga_factor = len(overlapping_moves) / min(len(own_moves), len(opp_moves))
+        ga_factor = not(not(overlapping_moves))
+    
+    # Calculate total score
+    total_score = gi_score + 0.5 * ga_factor + 0.5 * ba_score
+    #print("Improved score: %f vs. New Score: %f" % (gi_score, total_score))
+    return total_score
+
 
 def minimax_score(game, player):
     """This heuristic is used for the minimax algorithm and returns -1, +1 for losing, winning terminal node respectively
@@ -441,8 +553,7 @@ class MinimaxPlayer(IsolationPlayer):
         if self.time_left() < self.TIMER_THRESHOLD:
             raise SearchTimeout()
 
-        # TODO: finish this function!
-        # Make new game state
+        # Get legal moves
         legal_moves = game.get_legal_moves()
         return (-1,-1) if not legal_moves else \
             max(legal_moves, key=lambda m: self.min_value(game.forecast_move(m), depth, 0))
@@ -552,8 +663,8 @@ class AlphaBetaPlayer(IsolationPlayer):
             curr_move = self.alphabeta(game, curr_depth)
             while curr_move != (-1, -1): 
                 best_move = curr_move
-                curr_move = self.alphabeta(game, curr_depth)
                 curr_depth += 1
+                curr_move = self.alphabeta(game, curr_depth)
 
         except SearchTimeout:
             pass  # Handle any actions required after timeout as needed
@@ -609,13 +720,13 @@ class AlphaBetaPlayer(IsolationPlayer):
         if self.time_left() < self.TIMER_THRESHOLD:
             raise SearchTimeout()
 
-        assert alpha < beta, "Initially, alpha should be less than beta!"
+        #assert alpha < beta, "Initially, alpha should be less than beta!"
 
-        # Make new game state
+        # Get legal moves
         legal_moves = game.get_legal_moves()
         #print([(move, self.max_value(game.forecast_move(move), depth, 0, alpha, beta)) for move in legal_moves])
         return (-1,-1) if not legal_moves else \
-            max(legal_moves, key=lambda m: self.min_value(game.forecast_move(m), depth, alpha, beta))
+            max(legal_moves, key=lambda m: self.min_value(game.forecast_move(m), depth-1, alpha, beta))
 
     def terminal_test(self, game):
         """ Return True if the game is over for the active player
@@ -634,13 +745,12 @@ class AlphaBetaPlayer(IsolationPlayer):
         if self.time_left() < self.TIMER_THRESHOLD:
             raise SearchTimeout()
 
-        depth -= 1
         if alpha >= beta or depth <= 0 or self.terminal_test(game):
             return self.score(game, self)
         else:
             v = beta #float("inf")
             for m in game.get_legal_moves():
-                child_val = min(v, self.max_value(game.forecast_move(m), depth, alpha, v))
+                child_val = min(v, self.max_value(game.forecast_move(m), depth-1, alpha, v))
                 v = min(v, child_val)
                 # Prune rest of the branches if min-boundary is breached
                 if v <= alpha:
@@ -655,13 +765,12 @@ class AlphaBetaPlayer(IsolationPlayer):
         if self.time_left() < self.TIMER_THRESHOLD:
             raise SearchTimeout()
 
-        depth -= 1
         if alpha >= beta or depth <= 0 or self.terminal_test(game):
             return self.score(game, self)
         else:
             v = alpha #float("-inf")
             for m in game.get_legal_moves():
-                child_val = max(v, self.min_value(game.forecast_move(m), depth, v, beta))
+                child_val = max(v, self.min_value(game.forecast_move(m), depth-1, v, beta))
                 v = max(v, child_val)
                 # Prune rest of the branches if max-boundary is breached
                 if v >= beta:
